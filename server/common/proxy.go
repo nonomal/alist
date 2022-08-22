@@ -26,9 +26,18 @@ func Proxy(w http.ResponseWriter, r *http.Request, link *base.Link, file *model.
 			_ = link.Data.Close()
 		}()
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%s`, url.QueryEscape(file.Name)))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, file.Name, url.QueryEscape(file.Name)))
 		w.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
-		w.WriteHeader(http.StatusOK)
+		if link.Header != nil {
+			for h, val := range link.Header {
+				w.Header()[h] = val
+			}
+		}
+		if link.Status == 0 {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(link.Status)
+		}
 		_, err = io.Copy(w, link.Data)
 		if err != nil {
 			return err
@@ -48,7 +57,7 @@ func Proxy(w http.ResponseWriter, r *http.Request, link *base.Link, file *model.
 		if err != nil {
 			return err
 		}
-		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%s`, url.QueryEscape(file.Name)))
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, file.Name, url.QueryEscape(file.Name)))
 		http.ServeContent(w, r, file.Name, fileStat.ModTime(), f)
 		return nil
 	} else {

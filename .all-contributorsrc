@@ -51,11 +51,47 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "Windman1320",
+      "name": "Windman",
+      "avatar_url": "https://avatars.githubusercontent.com/u/9999486?v=4",
+      "profile": "https://github.com/Windman1320",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "ericarena",
+      "name": "ericarena",
+      "avatar_url": "https://avatars.githubusercontent.com/u/4518927?v=4",
+      "profile": "https://github.com/ericarena",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "WntFlm",
+      "name": "WntFlm",
+      "avatar_url": "https://avatars.githubusercontent.com/u/34620278?v=4",
+      "profile": "https://github.com/WntFlm",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "XZB-1248",
+      "name": "XZB-1248",
+      "avatar_url": "https://avatars.githubusercontent.com/u/28593573?v=4",
+      "profile": "https://github.com/XZB-1248",
+      "contributions": [
+        "code"
+      ]
     }
   ],
   "contributorsPerLine": 7,
   "projectName": "alist",
-  "projectOwner": "Xhofe",
+  "projectOwner": "alist-org",
   "repoType": "github",
   "repoHost": "https://github.com",
   "skipCi": true

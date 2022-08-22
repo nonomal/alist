@@ -1,31 +1,33 @@
 package _23
 
 import (
-	"github.com/Xhofe/alist/conf"
-	"github.com/Xhofe/alist/utils"
 	"path"
 	"time"
+
+	"github.com/Xhofe/alist/conf"
+	"github.com/Xhofe/alist/utils"
 )
 
-type Pan123File struct {
-	FileName  string     `json:"FileName"`
-	Size      int64      `json:"Size"`
-	UpdateAt  *time.Time `json:"UpdateAt"`
-	FileId    int64      `json:"FileId"`
-	Type      int        `json:"Type"`
-	Etag      string     `json:"Etag"`
-	S3KeyFlag string     `json:"S3KeyFlag"`
+type File struct {
+	FileName    string     `json:"FileName"`
+	Size        int64      `json:"Size"`
+	UpdateAt    *time.Time `json:"UpdateAt"`
+	FileId      int64      `json:"FileId"`
+	Type        int        `json:"Type"`
+	Etag        string     `json:"Etag"`
+	S3KeyFlag   string     `json:"S3KeyFlag"`
+	DownloadUrl string     `json:"DownloadUrl"`
 }
 
-func (f Pan123File) GetSize() uint64 {
+func (f File) GetSize() uint64 {
 	return uint64(f.Size)
 }
 
-func (f Pan123File) GetName() string {
+func (f File) GetName() string {
 	return f.FileName
 }
 
-func (f Pan123File) GetType() int {
+func (f File) GetType() int {
 	if f.Type == 1 {
 		return conf.FOLDER
 	}
@@ -47,8 +49,8 @@ type Pan123TokenResp struct {
 type Pan123Files struct {
 	BaseResp
 	Data struct {
-		InfoList []Pan123File `json:"InfoList"`
-		Next     string       `json:"Next"`
+		InfoList []File `json:"InfoList"`
+		Next     string `json:"Next"`
 	} `json:"data"`
 }
 

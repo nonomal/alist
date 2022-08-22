@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/aws/aws-sdk-go v1.27.0
 	github.com/caarlos0/env/v6 v6.9.1
+	github.com/casdoor/casdoor-go-sdk v0.7.0
 	github.com/eko/gocache/v2 v2.1.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.4
@@ -16,7 +17,6 @@ require (
 	github.com/pkg/sftp v1.13.4
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/studio-b12/gowebdav v0.0.0-20211109083228-3f8721cd4b6f
 	github.com/upyun/go-sdk/v3 v3.0.2
 	golang.org/x/text v0.3.7
 	gorm.io/driver/mysql v1.3.2
@@ -25,18 +25,20 @@ require (
 	gorm.io/gorm v1.23.1
 )
 
-require github.com/kr/fs v0.1.0 // indirect
+require (
+	github.com/golang-jwt/jwt/v4 v4.1.0 // indirect
+	github.com/kr/fs v0.1.0 // indirect
+	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
+	google.golang.org/appengine v1.6.6 // indirect
+)
 
 require (
-	github.com/baiyubin/aliyun-sts-go-sdk v0.0.0-20180326062324-cfa1a18b161f // indirect
 	github.com/fatih/color v1.13.0
 	github.com/mattn/go-colorable v0.1.9 // indirect
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 )
 
 require (
 	github.com/XiaoMi/pegasus-go-client v0.0.0-20210427083443-f3b6b08bc4c2 // indirect
-	github.com/aliyun/aliyun-oss-go-sdk v2.2.1+incompatible
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bradfitz/gomemcache v0.0.0-20190913173617-a41fca850d0b // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0 // indirect
@@ -77,11 +79,16 @@ require (
 	go.opentelemetry.io/otel/metric v0.20.0 // indirect
 	go.opentelemetry.io/otel/trace v0.20.0 // indirect
 	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
-	golang.org/x/net v0.0.0-20211209124913-491a49abca63 // indirect
+	golang.org/x/net v0.0.0-20211209124913-491a49abca63
 	golang.org/x/sys v0.0.0-20220330033206-e17cdc41300f // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	k8s.io/apimachinery v0.0.0-20191123233150-4c4803ed55e3 // indirect
+)
+
+require (
+	github.com/bitly/go-simplejson v0.5.0
+    github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 )

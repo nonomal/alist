@@ -270,7 +270,7 @@ func (driver Cloud139) Rename(src string, dst string, account *model.Account) er
 				"accountType": 1,
 			},
 		}
-		pathname = "/orchestration/personalCloud/catalog/v1.0/updateContentInfo"
+		pathname = "/orchestration/personalCloud/content/v1.0/updateContentInfo"
 	}
 	_, err = driver.Post(pathname, data, nil, account)
 	return err
@@ -448,6 +448,7 @@ func (driver Cloud139) Upload(file *model.FileStream, account *model.Account) er
 			return err
 		}
 		log.Debugf("%+v", res)
+		res.Body.Close()
 		start += byteSize
 	}
 	return nil

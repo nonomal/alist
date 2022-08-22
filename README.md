@@ -39,6 +39,7 @@ English | [中文](./README_cn.md) | [Contributors](./CONTRIBUTORS.md) | [Contri
   - [x] [Quark](https://pan.quark.cn)
   - [x] [XunleiCloud](https://pan.xunlei.com/)
   - [x] SFTP
+  - [x] [Baidu.Photo](https://photo.baidu.com/)
 - [x] Easy to deploy and out-of-the-box
 - [x] File preview (PDF, markdown, code, plain text, ...)
 - [x] Image preview in gallery mode
@@ -71,7 +72,8 @@ Available at: <https://alist.nn.ci>.
 <https://alist-doc.nn.ci/en/>
 
 ## Special sponsors
-- [Find Resources - Aliyundrive Resource Search Engine](https://zhaoziyuan.la/)
+- [找资源 - 阿里云盘资源搜索引擎](https://zhaoziyuan.la/)
+- [KinhDown 百度云盘不限速下载！永久免费！已稳定运行3年！非常可靠!](https://kinhdown.com/?Type=Tutorials)
 - [JetBrains: Essential tools for software developers and teams](https://www.jetbrains.com/)
 
 ## License

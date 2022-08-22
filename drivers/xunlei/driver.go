@@ -1,21 +1,21 @@
 package xunlei
 
 import (
-	"fmt"
-	"io"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strconv"
-
-	"github.com/aliyun/aliyun-oss-go-sdk/oss"
-	"github.com/go-resty/resty/v2"
+	"strings"
+	"time"
 
 	"github.com/Xhofe/alist/conf"
 	"github.com/Xhofe/alist/drivers/base"
 	"github.com/Xhofe/alist/model"
 	"github.com/Xhofe/alist/utils"
-	log "github.com/sirupsen/logrus"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 )
 
 type XunLeiCloud struct{}
@@ -48,8 +48,61 @@ func (driver XunLeiCloud) Items() []base.Item {
 			Description: "account password",
 		},
 		{
-			Name:     "root_folder",
-			Label:    "root folder file_id",
+			Name:  "captcha_token",
+			Label: "verified captcha token",
+			Type:  base.TypeString,
+		},
+		{
+			Name:  "root_folder",
+			Label: "root folder file_id",
+			Type:  base.TypeString,
+		},
+		{
+			Name:     "client_version",
+			Label:    "client version",
+			Default:  "7.43.0.7998",
+			Type:     base.TypeString,
+			Required: true,
+		},
+		{
+			Name:     "client_id",
+			Label:    "client id",
+			Default:  "Xp6vsxz_7IYVw2BB",
+			Type:     base.TypeString,
+			Required: true,
+		},
+		{
+			Name:     "client_secret",
+			Label:    "client secret",
+			Default:  "Xp6vsy4tN9toTVdMSpomVdXpRmES",
+			Type:     base.TypeString,
+			Required: true,
+		},
+		{
+			Name:     "algorithms",
+			Label:    "algorithms",
+			Default:  "hrVPGbeqYPs+CIscj05VpAtjalzY5yjpvlMS8bEo,DrI0uTP,HHK0VXyMgY0xk2K0o,BBaXsExvL3GadmIacjWv7ISUJp3ifAwqbJumu,5toJ7ejB+bh1,5LsZTFAFjgvFvIl1URBgOAJ,QcJ5Ry+,hYgZVz8r7REROaCYfd9,zw6gXgkk/8TtGrmx6EGfekPESLnbZfDFwqR,gtSwLnMBa8h12nF3DU6+LwEQPHxd,fMG8TvtAYbCkxuEbIm0Xi/Lb7Z",
+			Type:     base.TypeString,
+			Required: true,
+		},
+		{
+			Name:     "package_name",
+			Label:    "package name",
+			Default:  "com.xunlei.downloadprovider",
+			Type:     base.TypeString,
+			Required: true,
+		},
+		{
+			Name:     "user_agent",
+			Label:    "user agent",
+			Default:  "ANDROID-com.xunlei.downloadprovider/7.43.0.7998 netWorkType/WIFI appid/40 deviceName/Samsung_Sm-g9810 deviceModel/SM-G9810 OSVersion/7.1.2 protocolVersion/301 platformVersion/10 sdkVersion/220200 Oauth2Client/0.9 (Linux 4_0_9+) (JAVA 0)",
+			Type:     base.TypeString,
+			Required: false,
+		},
+		{
+			Name:     "device_id",
+			Label:    "device id",
+			Default:  utils.GetMD5Encode(uuid.NewString()),
 			Type:     base.TypeString,
 			Required: true,
 		},
@@ -60,10 +113,18 @@ func (driver XunLeiCloud) Save(account *model.Account, old *model.Account) error
 	if account == nil {
 		return nil
 	}
-	state := GetState(account)
-	if state.isTokensExpires() {
-		return state.Login(account)
+
+	client := GetClient(account)
+	// 指定验证通过的captchaToken
+	if account.CaptchaToken != "" {
+		client.UpdateCaptchaToken(strings.TrimSpace(account.CaptchaToken))
+		account.CaptchaToken = ""
 	}
+
+	if client.token == "" {
+		return client.Login(account)
+	}
+
 	account.Status = "work"
 	model.SaveAccount(account)
 	return nil
@@ -101,19 +162,23 @@ func (driver XunLeiCloud) Files(path string, account *model.Account) ([]model.Fi
 		files, _ := cache.([]model.File)
 		return files, nil
 	}
-	file, err := driver.File(path, account)
+
+	parentFile, err := driver.File(path, account)
 	if err != nil {
 		return nil, err
 	}
 
+	time.Sleep(time.Millisecond * 300)
 	files := make([]model.File, 0)
+	var pageToken string
 	for {
 		var fileList FileList
-		_, err = GetState(account).Request("GET", FILE_API_URL, func(r *resty.Request) {
+		_, err = GetClient(account).Request("GET", FILE_API_URL, func(r *resty.Request) {
 			r.SetQueryParams(map[string]string{
-				"parent_id":  file.Id,
-				"page_token": fileList.NextPageToken,
+				"parent_id":  parentFile.Id,
+				"page_token": pageToken,
 				"with_audit": "true",
+				"limit":      "100",
 				"filters":    `{"phase": {"eq": "PHASE_TYPE_COMPLETE"}, "trashed":{"eq":false}}`,
 			})
 			r.SetResult(&fileList)
@@ -129,6 +194,7 @@ func (driver XunLeiCloud) Files(path string, account *model.Account) ([]model.Fi
 		if fileList.NextPageToken == "" {
 			break
 		}
+		pageToken = fileList.NextPageToken
 	}
 	if len(files) > 0 {
 		_ = base.SetCache(path, files, account)
@@ -162,8 +228,9 @@ func (driver XunLeiCloud) Link(args base.Args, account *model.Account) (*base.Li
 		return nil, base.ErrNotFile
 	}
 	var lFile Files
-	_, err = GetState(account).Request("GET", FILE_API_URL+"/{id}", func(r *resty.Request) {
-		r.SetPathParam("id", file.Id)
+	clinet := GetClient(account)
+	_, err = clinet.Request("GET", FILE_API_URL+"/{fileID}", func(r *resty.Request) {
+		r.SetPathParam("fileID", file.Id)
 		r.SetQueryParam("with_audit", "true")
 		r.SetResult(&lFile)
 	}, account)
@@ -172,7 +239,7 @@ func (driver XunLeiCloud) Link(args base.Args, account *model.Account) (*base.Li
 	}
 	return &base.Link{
 		Headers: []base.Header{
-			{Name: "User-Agent", Value: base.UserAgent},
+			{Name: "User-Agent", Value: clinet.userAgent},
 		},
 		Url: lFile.WebContentLink,
 	}, nil
@@ -180,7 +247,6 @@ func (driver XunLeiCloud) Link(args base.Args, account *model.Account) (*base.Li
 
 func (driver XunLeiCloud) Path(path string, account *model.Account) (*model.File, []model.File, error) {
 	path = utils.ParsePath(path)
-	log.Debugf("xunlei path: %s", path)
 	file, err := driver.File(path, account)
 	if err != nil {
 		return nil, nil, err
@@ -199,6 +265,18 @@ func (driver XunLeiCloud) Preview(path string, account *model.Account) (interfac
 	return nil, base.ErrNotSupport
 }
 
+func (driver XunLeiCloud) Rename(src string, dst string, account *model.Account) error {
+	srcFile, err := driver.File(src, account)
+	if err != nil {
+		return err
+	}
+	_, err = GetClient(account).Request("PATCH", FILE_API_URL+"/{fileID}", func(r *resty.Request) {
+		r.SetPathParam("fileID", srcFile.Id)
+		r.SetBody(&base.Json{"name": filepath.Base(dst)})
+	}, account)
+	return err
+}
+
 func (driver XunLeiCloud) MakeDir(path string, account *model.Account) error {
 	dir, name := filepath.Split(path)
 	parentFile, err := driver.File(dir, account)
@@ -208,7 +286,7 @@ func (driver XunLeiCloud) MakeDir(path string, account *model.Account) error {
 	if !parentFile.IsDir() {
 		return base.ErrNotFolder
 	}
-	_, err = GetState(account).Request("POST", FILE_API_URL, func(r *resty.Request) {
+	_, err = GetClient(account).Request("POST", FILE_API_URL, func(r *resty.Request) {
 		r.SetBody(&base.Json{
 			"kind":      FOLDER,
 			"name":      name,
@@ -229,7 +307,7 @@ func (driver XunLeiCloud) Move(src string, dst string, account *model.Account) e
 		return err
 	}
 
-	_, err = GetState(account).Request("POST", FILE_API_URL+":batchMove", func(r *resty.Request) {
+	_, err = GetClient(account).Request("POST", FILE_API_URL+":batchMove", func(r *resty.Request) {
 		r.SetBody(&base.Json{
 			"to":  base.Json{"parent_id": dstDirFile.Id},
 			"ids": []string{srcFile.Id},
@@ -248,7 +326,7 @@ func (driver XunLeiCloud) Copy(src string, dst string, account *model.Account) e
 	if err != nil {
 		return err
 	}
-	_, err = GetState(account).Request("POST", FILE_API_URL+":batchCopy", func(r *resty.Request) {
+	_, err = GetClient(account).Request("POST", FILE_API_URL+":batchCopy", func(r *resty.Request) {
 		r.SetBody(&base.Json{
 			"to":  base.Json{"parent_id": dstDirFile.Id},
 			"ids": []string{srcFile.Id},
@@ -262,8 +340,8 @@ func (driver XunLeiCloud) Delete(path string, account *model.Account) error {
 	if err != nil {
 		return err
 	}
-	_, err = GetState(account).Request("PATCH", FILE_API_URL+"/{id}/trash", func(r *resty.Request) {
-		r.SetPathParam("id", srcFile.Id)
+	_, err = GetClient(account).Request("PATCH", FILE_API_URL+"/{fileID}/trash", func(r *resty.Request) {
+		r.SetPathParam("fileID", srcFile.Id)
 		r.SetBody(&base.Json{})
 	}, account)
 	return err
@@ -279,28 +357,35 @@ func (driver XunLeiCloud) Upload(file *model.FileStream, account *model.Account)
 		return err
 	}
 
-	tempFile, err := ioutil.TempFile(conf.Conf.TempDir, "file-*")
-	if err != nil {
-		return err
-	}
+	/*
+		tempFile, err := ioutil.TempFile(conf.Conf.TempDir, "file-*")
+		if err != nil {
+			return err
+		}
 
-	defer os.Remove(tempFile.Name())
+		defer func() {
+			_ = tempFile.Close()
+			_ = os.Remove(tempFile.Name())
+		}()
 
-	gcid, err := getGcid(io.TeeReader(file, tempFile), int64(file.Size))
-	if err != nil {
-		return err
-	}
+		gcid, err := getGcid(io.TeeReader(file, tempFile), int64(file.Size))
+		if err != nil {
+			return err
+		}
 
-	tempFile.Close()
+		if _, err = tempFile.Seek(0, io.SeekStart); err != nil {
+			return err
+		}
+	*/
 
 	var resp UploadTaskResponse
-	_, err = GetState(account).Request("POST", FILE_API_URL, func(r *resty.Request) {
+	_, err = GetClient(account).Request("POST", FILE_API_URL, func(r *resty.Request) {
 		r.SetBody(&base.Json{
 			"kind":        FILE,
 			"parent_id":   parentFile.Id,
 			"name":        file.Name,
-			"size":        fmt.Sprint(file.Size),
-			"hash":        gcid,
+			"size":        file.Size,
+			"hash":        "1CF254FBC456E1B012CD45C546636AA62CF8350E",
 			"upload_type": UPLOAD_TYPE_RESUMABLE,
 		})
 		r.SetResult(&resp)
@@ -311,30 +396,24 @@ func (driver XunLeiCloud) Upload(file *model.FileStream, account *model.Account)
 
 	param := resp.Resumable.Params
 	if resp.UploadType == UPLOAD_TYPE_RESUMABLE {
-		client, err := oss.New(param.Endpoint, param.AccessKeyID, param.AccessKeySecret, oss.SecurityToken(param.SecurityToken), oss.EnableMD5(true))
+		param.Endpoint = strings.TrimLeft(param.Endpoint, param.Bucket+".")
+		s, err := session.NewSession(&aws.Config{
+			Credentials: credentials.NewStaticCredentials(param.AccessKeyID, param.AccessKeySecret, param.SecurityToken),
+			Region:      aws.String("xunlei"),
+			Endpoint:    aws.String(param.Endpoint),
+		})
 		if err != nil {
 			return err
 		}
-		bucket, err := client.Bucket(param.Bucket)
-		if err != nil {
-			return err
-		}
-		return bucket.UploadFile(param.Key, tempFile.Name(), 1<<22, oss.Routines(3), oss.Checkpoint(true, ""), oss.Expires(param.Expiration))
-	}
-	return nil
-}
-
-func (driver XunLeiCloud) Rename(src string, dst string, account *model.Account) error {
-	_, dstName := filepath.Split(dst)
-	srcFile, err := driver.File(src, account)
-	if err != nil {
+		_, err = s3manager.NewUploader(s).Upload(&s3manager.UploadInput{
+			Bucket:  aws.String(param.Bucket),
+			Key:     aws.String(param.Key),
+			Expires: aws.Time(param.Expiration),
+			Body:    file,
+		})
 		return err
 	}
-	_, err = GetState(account).Request("PATCH", FILE_API_URL+"/{id}", func(r *resty.Request) {
-		r.SetPathParam("id", srcFile.Id)
-		r.SetBody(&base.Json{"name": dstName})
-	}, account)
-	return err
+	return nil
 }
 
 var _ base.Driver = (*XunLeiCloud)(nil)

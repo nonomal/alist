@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"flag"
+
 	"github.com/Xhofe/alist/conf"
 	log "github.com/sirupsen/logrus"
 )
